@@ -1,0 +1,92 @@
+{
+  "applications": [
+    {
+      "application_id": 501,
+      "status": "interview",
+      "applied_at": "2026-10-03T11:30:00",
+      "opportunity": {
+        "opportunity_id": 101,
+        "title": "Data Science Intern",
+        "type": "internship",
+        "location": "Chennai",
+        "deadline": "2026-11-05T18:30:00",
+        "apply_link": "https://example.com/opportunities/101",
+        "organization": {
+          "organization_id": 1,
+          "name": "AgriTech Labs"
+        }
+      }
+    },
+    {
+      "application_id": 502,
+      "status": "applied",
+      "applied_at": "2026-10-12T15:45:00",
+      "opportunity": {
+        "opportunity_id": 102,
+        "title": "Campus Innovation Hackathon",
+        "type": "hackathon",
+        "location": "Online",
+        "deadline": "2026-11-12T23:59:00",
+        "apply_link": "https://example.com/opportunities/102",
+        "organization": {
+          "organization_id": 2,
+          "name": "BuildNext"
+        }
+      }
+    },
+    {
+      "application_id": 503,
+      "status": "offered",
+      "applied_at": "2026-09-25T09:00:00",
+      "opportunity": {
+        "opportunity_id": 103,
+        "title": "Frontend Engineering Intern",
+        "type": "internship",
+        "location": "Bengaluru",
+        "deadline": "2026-11-18T17:00:00",
+        "apply_link": "https://example.com/opportunities/103",
+        "organization": {
+          "organization_id": 3,
+          "name": "Northstar Tech"
+        }
+      }
+    }
+  ],
+  "history": {
+    "501": [
+      {
+        "old_status": "applied",
+        "new_status": "shortlisted",
+        "changed_at": "2026-10-08T10:00:00",
+        "note": "Application shortlisted."
+      },
+      {
+        "old_status": "shortlisted",
+        "new_status": "interview",
+        "changed_at": "2026-10-15T14:30:00",
+        "note": "Interview scheduled."
+      }
+    ],
+    "502": [],
+    "503": [
+      {
+        "old_status": "applied",
+        "new_status": "shortlisted",
+        "changed_at": "2026-09-30T10:00:00",
+        "note": "Profile shortlisted."
+      },
+      {
+        "old_status": "shortlisted",
+        "new_status": "interview",
+        "changed_at": "2026-10-05T12:00:00",
+        "note": "Interview invitation received."
+      },
+      {
+        "old_status": "interview",
+        "new_status": "offered",
+        "changed_at": "2026-10-18T16:00:00",
+        "note": "Offer received."
+      }
+    ]
+  }
+}
