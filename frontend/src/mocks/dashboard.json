@@ -1,0 +1,35 @@
+{
+  "counts": {
+    "applied": 1,
+    "shortlisted": 0,
+    "offers": 1,
+    "upcoming_reminders": 2
+  },
+  "upcoming_deadlines": [
+    {
+      "opportunity_id": 101,
+      "title": "Data Science Intern",
+      "deadline": "2026-11-05T18:30:00"
+    },
+    {
+      "opportunity_id": 102,
+      "title": "Campus Innovation Hackathon",
+      "deadline": "2026-11-12T23:59:00"
+    },
+    {
+      "opportunity_id": 103,
+      "title": "Frontend Engineering Intern",
+      "deadline": "2026-11-18T17:00:00"
+    },
+    {
+      "opportunity_id": 104,
+      "title": "Research Assistant - Applied ML",
+      "deadline": "2026-11-25T17:00:00"
+    }
+  ],
+  "top_skill_gaps": [
+    { "skill_name": "Machine Learning" },
+    { "skill_name": "Statistics" },
+    { "skill_name": "SQL" }
+  ]
+}
