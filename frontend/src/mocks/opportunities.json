@@ -1,0 +1,194 @@
+{
+  "list": [
+    {
+      "opportunity_id": 101,
+      "title": "Data Science Intern",
+      "type": "internship",
+      "organization": {
+        "organization_id": 1,
+        "name": "AgriTech Labs"
+      },
+      "location": "Chennai",
+      "deadline": "2026-11-05T18:30:00",
+      "required_skills": [
+        { "skill_id": 1, "skill_name": "Python" },
+        { "skill_id": 2, "skill_name": "SQL" },
+        { "skill_id": 3, "skill_name": "Pandas" }
+      ],
+      "match_percent": 66.67
+    },
+    {
+      "opportunity_id": 102,
+      "title": "Campus Innovation Hackathon",
+      "type": "hackathon",
+      "organization": {
+        "organization_id": 2,
+        "name": "BuildNext"
+      },
+      "location": "Online",
+      "deadline": "2026-11-12T23:59:00",
+      "required_skills": [
+        { "skill_id": 4, "skill_name": "React" },
+        { "skill_id": 5, "skill_name": "TypeScript" }
+      ],
+      "match_percent": 50
+    },
+    {
+      "opportunity_id": 103,
+      "title": "Frontend Engineering Intern",
+      "type": "internship",
+      "organization": {
+        "organization_id": 3,
+        "name": "Northstar Tech"
+      },
+      "location": "Bengaluru",
+      "deadline": "2026-11-18T17:00:00",
+      "required_skills": [
+        { "skill_id": 4, "skill_name": "React" },
+        { "skill_id": 5, "skill_name": "TypeScript" },
+        { "skill_id": 6, "skill_name": "CSS" }
+      ],
+      "match_percent": 100
+    },
+    {
+      "opportunity_id": 104,
+      "title": "Research Assistant - Applied ML",
+      "type": "research",
+      "organization": {
+        "organization_id": 4,
+        "name": "Centre for Intelligent Systems"
+      },
+      "location": "Tiruchirappalli",
+      "deadline": "2026-11-25T17:00:00",
+      "required_skills": [
+        { "skill_id": 1, "skill_name": "Python" },
+        { "skill_id": 7, "skill_name": "Machine Learning" },
+        { "skill_id": 8, "skill_name": "Statistics" }
+      ],
+      "match_percent": 33.33
+    }
+  ],
+  "details": {
+    "101": {
+      "opportunity_id": 101,
+      "title": "Data Science Intern",
+      "type": "internship",
+      "description": "Work with a data science team to clean datasets, analyse trends, and prepare reports for ongoing projects.",
+      "location": "Chennai",
+      "mode": "hybrid",
+      "stipend": 25000,
+      "deadline": "2026-11-05T18:30:00",
+      "apply_link": "https://example.com/opportunities/101",
+      "created_at": "2026-10-01T10:00:00",
+      "organization": {
+        "organization_id": 1,
+        "name": "AgriTech Labs",
+        "type": "company",
+        "website": "https://example.com/agritech",
+        "location": "Chennai"
+      },
+      "required_skills": [
+        { "skill_id": 1, "skill_name": "Python" },
+        { "skill_id": 2, "skill_name": "SQL" },
+        { "skill_id": 3, "skill_name": "Pandas" }
+      ],
+      "match_percent": 66.67,
+      "eligibility": {
+        "min_cgpa": 7,
+        "allowed_branches": "CSE,IT,ECE",
+        "allowed_years": "3,4"
+      }
+    },
+    "102": {
+      "opportunity_id": 102,
+      "title": "Campus Innovation Hackathon",
+      "type": "hackathon",
+      "description": "Build a working prototype that solves a real campus or community problem. Teams may participate remotely.",
+      "location": "Online",
+      "mode": "remote",
+      "stipend": null,
+      "deadline": "2026-11-12T23:59:00",
+      "apply_link": "https://example.com/opportunities/102",
+      "created_at": "2026-10-05T09:00:00",
+      "organization": {
+        "organization_id": 2,
+        "name": "BuildNext",
+        "type": "community",
+        "website": "https://example.com/buildnext",
+        "location": "Online"
+      },
+      "required_skills": [
+        { "skill_id": 4, "skill_name": "React" },
+        { "skill_id": 5, "skill_name": "TypeScript" }
+      ],
+      "match_percent": 50,
+      "eligibility": null
+    },
+    "103": {
+      "opportunity_id": 103,
+      "title": "Frontend Engineering Intern",
+      "type": "internship",
+      "description": "Help implement responsive interfaces, reusable UI components, and accessible web experiences.",
+      "location": "Bengaluru",
+      "mode": "hybrid",
+      "stipend": 30000,
+      "deadline": "2026-11-18T17:00:00",
+      "apply_link": "https://example.com/opportunities/103",
+      "created_at": "2026-10-07T12:00:00",
+      "organization": {
+        "organization_id": 3,
+        "name": "Northstar Tech",
+        "type": "startup",
+        "website": "https://example.com/northstar",
+        "location": "Bengaluru"
+      },
+      "required_skills": [
+        { "skill_id": 4, "skill_name": "React" },
+        { "skill_id": 5, "skill_name": "TypeScript" },
+        { "skill_id": 6, "skill_name": "CSS" }
+      ],
+      "match_percent": 100,
+      "eligibility": {
+        "min_cgpa": 7.5,
+        "allowed_branches": "CSE,IT",
+        "allowed_years": "3,4"
+      }
+    },
+    "104": {
+      "opportunity_id": 104,
+      "title": "Research Assistant - Applied ML",
+      "type": "research",
+      "description": "Assist with data preparation, baseline models, experimental analysis, and research documentation.",
+      "location": "Tiruchirappalli",
+      "mode": "onsite",
+      "stipend": 15000,
+      "deadline": "2026-11-25T17:00:00",
+      "apply_link": "https://example.com/opportunities/104",
+      "created_at": "2026-10-10T14:00:00",
+      "organization": {
+        "organization_id": 4,
+        "name": "Centre for Intelligent Systems",
+        "type": "research_lab",
+        "website": "https://example.com/cis",
+        "location": "Tiruchirappalli"
+      },
+      "required_skills": [
+        { "skill_id": 1, "skill_name": "Python" },
+        { "skill_id": 7, "skill_name": "Machine Learning" },
+        { "skill_id": 8, "skill_name": "Statistics" }
+      ],
+      "match_percent": 33.33,
+      "eligibility": {
+        "min_cgpa": 7,
+        "allowed_branches": "CSE,ECE",
+        "allowed_years": "3,4"
+      }
+    }
+  },
+  "matches": {
+    "101": { "opportunity_id": 101, "match_percent": 66.67 },
+    "102": { "opportunity_id": 102, "match_percent": 50 },
+    "103": { "opportunity_id": 103, "match_percent": 100 },
+    "104": { "opportunity_id": 104, "match_percent": 33.33 }
+  }
+}
