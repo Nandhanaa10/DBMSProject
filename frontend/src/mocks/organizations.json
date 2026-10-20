@@ -1,0 +1,30 @@
+[
+  {
+    "organization_id": 1,
+    "name": "AgriTech Labs",
+    "type": "company",
+    "website": "https://example.com/agritech",
+    "location": "Chennai"
+  },
+  {
+    "organization_id": 2,
+    "name": "BuildNext",
+    "type": "community",
+    "website": "https://example.com/buildnext",
+    "location": "Online"
+  },
+  {
+    "organization_id": 3,
+    "name": "Northstar Tech",
+    "type": "startup",
+    "website": "https://example.com/northstar",
+    "location": "Bengaluru"
+  },
+  {
+    "organization_id": 4,
+    "name": "Centre for Intelligent Systems",
+    "type": "research_lab",
+    "website": "https://example.com/cis",
+    "location": "Tiruchirappalli"
+  }
+]
