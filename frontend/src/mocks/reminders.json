@@ -1,0 +1,38 @@
+[
+  {
+    "reminder_id": 701,
+    "opportunity_id": 101,
+    "remind_at": "2026-10-29T09:00:00",
+    "message": "Prepare and submit the Data Science Intern application.",
+    "is_sent": false,
+    "opportunity": {
+      "opportunity_id": 101,
+      "title": "Data Science Intern",
+      "deadline": "2026-11-05T18:30:00"
+    }
+  },
+  {
+    "reminder_id": 702,
+    "opportunity_id": 102,
+    "remind_at": "2026-11-01T10:00:00",
+    "message": "Discuss the hackathon idea with your team.",
+    "is_sent": false,
+    "opportunity": {
+      "opportunity_id": 102,
+      "title": "Campus Innovation Hackathon",
+      "deadline": "2026-11-12T23:59:00"
+    }
+  },
+  {
+    "reminder_id": 703,
+    "opportunity_id": 103,
+    "remind_at": "2026-10-10T09:00:00",
+    "message": "Review the frontend internship requirements.",
+    "is_sent": true,
+    "opportunity": {
+      "opportunity_id": 103,
+      "title": "Frontend Engineering Intern",
+      "deadline": "2026-11-18T17:00:00"
+    }
+  }
+]
