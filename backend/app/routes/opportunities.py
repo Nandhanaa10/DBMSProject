@@ -7,6 +7,7 @@ from ..db import query_all, query_one
 from ..utils import (
     ApiError,
     current_student_id,
+    fail,
     get_pagination,
     list_meta,
     ok,
