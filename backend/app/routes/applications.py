@@ -1,164 +1,373 @@
+from mysql.connector.errors import IntegrityError
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
-from mysql.connector.errors import IntegrityError
 
-from ..db import execute, query_all, query_one, transaction
-from ..utils import fail, ok
-from ._common import (APPLICATION_STATUSES, BRANCH_OK, CGPA_OK, YEAR_OK, clean,
-                      current_student_id, parse_page)
+from ..db import query_all, query_one, transaction
+from ..utils import (
+    ApiError,
+    current_student_id,
+    fail,
+    get_pagination,
+    json_body,
+    list_meta,
+    ok,
+    validate_int_id,
+)
 
 bp = Blueprint("applications", __name__)
+applications_bp = bp
 
-# ---------------------------------------------------------------------------
-# SQL
-# ---------------------------------------------------------------------------
-
-# Concept: eligibility evaluated INSIDE the database (cgpa / branch / year as three boolean
-# columns) so we can tell the student exactly which rule failed.
-ELIGIBILITY_CHECK_SQL = f"""
-SELECT o.opportunity_id,
-       {CGPA_OK} AS cgpa_ok,
-       {BRANCH_OK} AS branch_ok,
-       {YEAR_OK} AS year_ok
-FROM Opportunities o
-JOIN Students s ON s.student_id = %s
-LEFT JOIN OpportunityEligibility e ON e.opportunity_id = o.opportunity_id
-WHERE o.opportunity_id = %s
-"""
-
-# Concept: UNIQUE(student_id, opportunity_id) is the real duplicate guard. We INSERT and catch
-# MySQL error 1062 instead of SELECT-then-INSERT, which would be a race condition.
-INSERT_APPLICATION_SQL = """
-INSERT INTO Applications (student_id, opportunity_id, status, applied_at)
-VALUES (%s, %s, 'applied', NOW())
-"""
-
-# Concept: 3-table JOIN, filtered by owner (student_id) so students only see their own rows.
-APP_SELECT = """
-SELECT a.application_id, a.status, a.applied_at,
-       o.opportunity_id, o.title, o.type, o.deadline,
-       org.organization_id AS org_id, org.name AS org_name
-FROM Applications a
-JOIN Opportunities o ON o.opportunity_id = a.opportunity_id
-JOIN Organizations org ON org.organization_id = o.organization_id
-WHERE a.student_id = %s
-"""
-APP_ORDER = " ORDER BY a.applied_at DESC, a.application_id DESC"
-
-# Concept: TRANSACTION (ACID) + pessimistic row lock. FOR UPDATE locks the application row so two
-# concurrent PATCH requests cannot both read the same old_status and write inconsistent history.
-LOCK_APP_SQL = ("SELECT status FROM Applications "
-                "WHERE application_id = %s AND student_id = %s FOR UPDATE")
-UPDATE_STATUS_SQL = "UPDATE Applications SET status = %s WHERE application_id = %s"
-INSERT_HISTORY_SQL = """
-INSERT INTO ApplicationStatusHistory (application_id, old_status, new_status, note, changed_at)
-VALUES (%s, %s, %s, %s, NOW())
-"""
-
-OWNS_APP_SQL = "SELECT application_id FROM Applications WHERE application_id = %s AND student_id = %s"
-HISTORY_SQL = """
-SELECT old_status, new_status, changed_at, note
-FROM ApplicationStatusHistory
-WHERE application_id = %s
-ORDER BY changed_at ASC, history_id ASC
-"""
+APPLICATION_STATUSES = (
+    "saved",
+    "applied",
+    "shortlisted",
+    "interview",
+    "offered",
+    "rejected",
+    "withdrawn",
+)
 
 
-def _item(r):
-    return {
-        "application_id": r["application_id"],
-        "status": r["status"],
-        "applied_at": r["applied_at"],
-        "opportunity": {
-            "opportunity_id": r["opportunity_id"], "title": r["title"],
-            "type": r["type"], "deadline": r["deadline"],
-            "organization": {"organization_id": r["org_id"], "name": r["org_name"]},
-        },
-    }
+def _positive_int(value, field):
+    number = validate_int_id(value, field)
+    if number < 1:
+        raise ApiError("VALIDATION_ERROR", f"{field} must be positive")
+    return number
+
+
+def _validate_status(value):
+    if not isinstance(value, str) or value not in APPLICATION_STATUSES:
+        raise ApiError(
+            "VALIDATION_ERROR",
+            "status must be one of: " + ", ".join(APPLICATION_STATUSES)
+        )
+    return value
+
+
+def _validate_note(value):
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        raise ApiError("VALIDATION_ERROR", "note must be a string or null")
+
+    value = value.strip()
+
+    if len(value) > 255:
+        raise ApiError("VALIDATION_ERROR", "note must not exceed 255 characters")
+
+    return value or None
 
 
 @bp.post("/applications")
 @jwt_required()
 def create_application():
-    sid = current_student_id()
-    body = request.get_json(silent=True) or {}
-    opp_id = body.get("opportunity_id")
-    if not isinstance(opp_id, int) or isinstance(opp_id, bool):
-        return fail("VALIDATION_ERROR", "opportunity_id must be an integer", 400)
+    student_id = current_student_id()
+    body = json_body()
 
-    chk = query_one(ELIGIBILITY_CHECK_SQL, (sid, opp_id))
-    if chk is None:
+    opportunity_id = _positive_int(
+        body.get("opportunity_id"),
+        "opportunity_id"
+    )
+
+    # SQL performs the eligibility check against the student's real profile.
+    eligibility = query_one(
+        """
+        SELECT
+            CASE
+                WHEN oe.eligibility_id IS NULL
+                    OR (
+                        (oe.min_cgpa IS NULL OR s.cgpa >= oe.min_cgpa)
+                        AND (
+                            oe.allowed_branches IS NULL
+                            OR FIND_IN_SET(
+                                s.branch,
+                                oe.allowed_branches
+                            ) > 0
+                        )
+                        AND (
+                            oe.allowed_years IS NULL
+                            OR FIND_IN_SET(
+                                CAST(s.year AS CHAR),
+                                oe.allowed_years
+                            ) > 0
+                        )
+                    )
+                THEN 1
+                ELSE 0
+            END AS is_eligible
+        FROM Opportunities o
+        JOIN Students s
+            ON s.student_id = %s
+        LEFT JOIN OpportunityEligibility oe
+            ON oe.opportunity_id = o.opportunity_id
+        WHERE o.opportunity_id = %s
+        """,
+        (student_id, opportunity_id)
+    )
+
+    if eligibility is None:
         return fail("NOT_FOUND", "Opportunity not found", 404)
-    failed = [label for passed, label in ((chk["cgpa_ok"], "minimum CGPA"),
-                                          (chk["branch_ok"], "branch"),
-                                          (chk["year_ok"], "year")) if not passed]
-    if failed:
-        return fail("NOT_ELIGIBLE", "Eligibility not met: " + ", ".join(failed), 403)
+
+    if not int(eligibility["is_eligible"]):
+        return fail(
+            "INELIGIBLE",
+            "You do not meet this opportunity's eligibility requirements",
+            403
+        )
 
     try:
-        app_id = execute(INSERT_APPLICATION_SQL, (sid, opp_id))
-    except IntegrityError as e:
-        if e.errno == 1062:  # duplicate entry on UNIQUE(student_id, opportunity_id)
-            return fail("DUPLICATE_APPLICATION", "You have already applied to this opportunity", 409)
-        raise
-    row = query_one(APP_SELECT + " AND a.application_id = %s", (sid, app_id))
-    return ok(clean(_item(row)), status=201)
+        with transaction() as tx:
+            # The database UNIQUE constraint remains the final
+            # protection against duplicate applications.
+            existing = tx.query_one(
+                """
+                SELECT application_id
+                FROM Applications
+                WHERE student_id = %s
+                  AND opportunity_id = %s
+                FOR UPDATE
+                """,
+                (student_id, opportunity_id)
+            )
+
+            if existing is not None:
+                return fail(
+                    "DUPLICATE_APPLICATION",
+                    "You have already applied to this opportunity",
+                    409
+                )
+
+            application_id = tx.execute(
+                """
+                INSERT INTO Applications (
+                    student_id,
+                    opportunity_id,
+                    status
+                )
+                VALUES (%s, %s, %s)
+                """,
+                (student_id, opportunity_id, "applied")
+            )
+
+    except IntegrityError as exc:
+        # Handles a duplicate created by a concurrent request too.
+        if getattr(exc, "errno", None) == 1062:
+            return fail(
+                "DUPLICATE_APPLICATION",
+                "You have already applied to this opportunity",
+                409
+            )
+
+        if getattr(exc, "errno", None) == 1452:
+            return fail("NOT_FOUND", "Opportunity not found", 404)
+
+        return fail(
+            "APPLICATION_CONFLICT",
+            "The application could not be created because of a database constraint",
+            409
+        )
+
+    return ok(
+        {
+            "application_id": application_id,
+            "student_id": student_id,
+            "opportunity_id": opportunity_id,
+            "status": "applied",
+        },
+        status=201
+    )
 
 
 @bp.get("/applications")
 @jwt_required()
 def list_applications():
-    sid = current_student_id()
-    status = request.args.get("status")
-    try:
-        page, limit, offset = parse_page()
-    except ValueError as e:
-        return fail("VALIDATION_ERROR", str(e), 400)
-    if status and status not in APPLICATION_STATUSES:
-        return fail("VALIDATION_ERROR", "status must be one of: " + ", ".join(APPLICATION_STATUSES), 400)
+    student_id = current_student_id()
+    page, limit, offset = get_pagination()
 
-    cond, params = (" AND a.status = %s", [sid, status]) if status else ("", [sid])
-    total = query_one("SELECT COUNT(*) AS total FROM Applications a WHERE a.student_id = %s" + cond,
-                      params)["total"]
-    rows = query_all(APP_SELECT + cond + APP_ORDER + " LIMIT %s OFFSET %s", params + [limit, offset])
-    return ok(clean([_item(r) for r in rows]), meta={"page": page, "limit": limit, "total": total})
+    conditions = ["a.student_id = %s"]
+    params = [student_id]
+
+    status = request.args.get("status", "").strip()
+
+    if status:
+        status = _validate_status(status)
+        conditions.append("a.status = %s")
+        params.append(status)
+
+    where_sql = "WHERE " + " AND ".join(conditions)
+
+    total_row = query_one(
+        f"""
+        SELECT COUNT(*) AS total
+        FROM Applications a
+        {where_sql}
+        """,
+        tuple(params)
+    )
+    total = int(total_row["total"])
+
+    rows = query_all(
+        f"""
+        SELECT
+            a.application_id,
+            a.opportunity_id,
+            a.status,
+            a.applied_at,
+            o.title AS opportunity_title,
+            o.type AS opportunity_type,
+            o.location AS opportunity_location,
+            o.deadline AS opportunity_deadline,
+            o.apply_link,
+            org.organization_id,
+            org.name AS organization_name
+        FROM Applications a
+        JOIN Opportunities o
+            ON o.opportunity_id = a.opportunity_id
+        JOIN Organizations org
+            ON org.organization_id = o.organization_id
+        {where_sql}
+        ORDER BY a.applied_at DESC, a.application_id DESC
+        LIMIT %s OFFSET %s
+        """,
+        tuple(params + [limit, offset])
+    )
+
+    data = []
+
+    for row in rows:
+        data.append({
+            "application_id": row["application_id"],
+            "status": row["status"],
+            "applied_at": row["applied_at"],
+            "opportunity": {
+                "opportunity_id": row["opportunity_id"],
+                "title": row["opportunity_title"],
+                "type": row["opportunity_type"],
+                "location": row["opportunity_location"],
+                "deadline": row["opportunity_deadline"],
+                "apply_link": row["apply_link"],
+                "organization": {
+                    "organization_id": row["organization_id"],
+                    "name": row["organization_name"],
+                },
+            },
+        })
+
+    return ok(
+        data,
+        meta=list_meta(page, limit, total)
+    )
 
 
 @bp.patch("/applications/<int:application_id>/status")
 @jwt_required()
-def change_status(application_id):
-    sid = current_student_id()
-    body = request.get_json(silent=True) or {}
-    new_status = body.get("status")
-    note = body.get("note")
-    if new_status not in APPLICATION_STATUSES:
-        return fail("VALIDATION_ERROR", "status must be one of: " + ", ".join(APPLICATION_STATUSES), 400)
-    if note is not None and not isinstance(note, str):
-        return fail("VALIDATION_ERROR", "note must be a string", 400)
-    note = (note or "").strip() or None
+def update_application_status(application_id):
+    student_id = current_student_id()
+    body = json_body()
 
-    # One transaction: lock row -> update status -> insert history. Any exception inside the
-    # `with` block makes transaction() roll back both statements (assumed, see notes).
-    with transaction() as cur:
-        cur.execute(LOCK_APP_SQL, (application_id, sid))
-        rows = cur.fetchall()
-        if not rows:
+    new_status = _validate_status(body.get("status"))
+    note = _validate_note(body.get("note"))
+
+    with transaction() as tx:
+        # Lock this student's application while its status is changing.
+        application = tx.query_one(
+            """
+            SELECT application_id, status
+            FROM Applications
+            WHERE application_id = %s
+              AND student_id = %s
+            FOR UPDATE
+            """,
+            (application_id, student_id)
+        )
+
+        if application is None:
             return fail("NOT_FOUND", "Application not found", 404)
-        old_status = rows[0]["status"]
-        if old_status == new_status:
-            return fail("VALIDATION_ERROR", f"Application is already '{new_status}'", 400)
-        cur.execute(UPDATE_STATUS_SQL, (new_status, application_id))
-        cur.execute(INSERT_HISTORY_SQL, (application_id, old_status, new_status, note))
 
-    row = query_one(APP_SELECT + " AND a.application_id = %s", (sid, application_id))
-    return ok(clean(_item(row)))
+        old_status = application["status"]
+
+        if old_status != new_status:
+            updated = tx.execute_count(
+                """
+                UPDATE Applications
+                SET status = %s
+                WHERE application_id = %s
+                  AND student_id = %s
+                """,
+                (new_status, application_id, student_id)
+            )
+
+            if updated == 0:
+                raise ApiError(
+                    "NOT_FOUND",
+                    "Application not found",
+                    404
+                )
+
+            # Same transaction as UPDATE. Any failure rolls both back.
+            tx.execute(
+                """
+                INSERT INTO ApplicationStatusHistory (
+                    application_id,
+                    old_status,
+                    new_status,
+                    note
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                (application_id, old_status, new_status, note)
+            )
+
+    return ok({
+        "application_id": application_id,
+        "status": new_status,
+    })
 
 
 @bp.get("/applications/<int:application_id>/history")
 @jwt_required()
-def get_history(application_id):
-    sid = current_student_id()
-    if query_one(OWNS_APP_SQL, (application_id, sid)) is None:
+def get_application_history(application_id):
+    student_id = current_student_id()
+
+    # Never expose another student's application history.
+    owned = query_one(
+        """
+        SELECT application_id
+        FROM Applications
+        WHERE application_id = %s
+          AND student_id = %s
+        """,
+        (application_id, student_id)
+    )
+
+    if owned is None:
         return fail("NOT_FOUND", "Application not found", 404)
-    rows = query_all(HISTORY_SQL, (application_id,))
-    return ok(clean(rows), meta={"page": 1, "limit": max(len(rows), 1), "total": len(rows)})
+
+    page, limit, offset = get_pagination()
+
+    total_row = query_one(
+        """
+        SELECT COUNT(*) AS total
+        FROM ApplicationStatusHistory
+        WHERE application_id = %s
+        """,
+        (application_id,)
+    )
+    total = int(total_row["total"])
+
+    history = query_all(
+        """
+        SELECT old_status, new_status, changed_at, note
+        FROM ApplicationStatusHistory
+        WHERE application_id = %s
+        ORDER BY changed_at ASC, history_id ASC
+        LIMIT %s OFFSET %s
+        """,
+        (application_id, limit, offset)
+    )
+
+    return ok(
+        history,
+        meta=list_meta(page, limit, total)
+    )
